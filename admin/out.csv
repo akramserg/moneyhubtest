@@ -1,4 +1,13 @@
-Name,Surname,Age,Gender
-John,Snow,26,M
-Clair,White,33,F
-Fancy,Brown,78,F
+User,First Name,Last Name,Date,Holding,Value
+1,Billy,Bob,2020-01-01,The Small Investment Company,1400
+2,Sheila,Aussie,2020-01-01,The Big Investment Company,10000
+2,Sheila,Aussie,2020-01-01,The Small Investment Company,10000
+1,Billy,Bob,2020-02-01,The Small Investment Company,1300
+2,Sheila,Aussie,2020-02-01,The Big Investment Company,11000
+2,Sheila,Aussie,2020-02-01,The Small Investment Company,11000
+1,Billy,Bob,2020-03-01,The Small Investment Company,12000
+2,Sheila,Aussie,2020-03-01,The Big Investment Company,10750
+2,Sheila,Aussie,2020-03-01,The Small Investment Company,6450
+2,Sheila,Aussie,2020-03-01,Capital Investments,4300
+3,John,Smith,2020-03-01,The Big Investment Company,120000
+3,John,Smith,2020-03-01,Capital Investments,30000

@@ -4,6 +4,7 @@ const config = require('config')
 const request = require('request')
 const R = require('ramda')
 const createCsvWriter = require('csv-writer').createObjectCsvWriter
+const c = require('config')
 
 const app = express()
 
@@ -36,52 +37,81 @@ app.get('/generatecsv', async (req, res) => {
         console.error(e)
         res.send(500)
       } else {
-        //CREATE A CSV DOCUMENT
-        const csvWriter = createCsvWriter({
-          path: 'out.csv',
-          header: [
-            { id: 'user', title: 'User' },
-            { id: 'firstName', title: 'First Name' },
-            { id: 'lastName', title: 'Last Name' },
-            { id: 'date', title: 'Date' },
-            { id: 'holding', title: 'Holding' },
-            { id: 'value', title: 'Value' },
-          ],
-        })
+        //GET COMPANIES
+        request.get(`${config.companiesUrl}/companies`, (e, r, comp) => {
+          if (e) {
+            console.error(e)
+            return null
+          } else {
+            const companies = JSON.parse(comp)
+            console.log(companies)
 
-        let allHoldings = []
-      
-
-        const getUserHoldings = R.map((holding) => {
-          return {
-            holding: 'name of company with id '+holding.id,
-            value: 'VALUE HERE',
-          }
-        })
-
-        
-        const getFormattedData = R.map((user) => {
-          console.log(getUserHoldings(user.holdings))
-          for (let h of getUserHoldings(user.holdings)) {
-            console.log(h)
-            allHoldings.push({
-              user: user.userId,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              date: user.date,
-              holding: h.holding,
-              value: h.value,
+            //CREATE A CSV DOCUMENT
+            const csvWriter = createCsvWriter({
+              path: 'out.csv',
+              header: [
+                { id: 'user', title: 'User' },
+                { id: 'firstName', title: 'First Name' },
+                { id: 'lastName', title: 'Last Name' },
+                { id: 'date', title: 'Date' },
+                { id: 'holding', title: 'Holding' },
+                { id: 'value', title: 'Value' },
+              ],
             })
+
+            let allHoldings = []
+
+            const findCompanyById = (id, companies) => {
+              return R.find((company) => {
+                return company.id === id
+              }, companies)
+            }
+
+            const getUserHoldings = (holdings, user) => {
+              // console.log("----user")
+              // console.log(user)
+              // console.log(user.investmentTotal)
+              return R.map((holding) => {
+                const company = findCompanyById(holding.id, companies)
+                return {
+                  holding: company.name,
+                  value: user.investmentTotal * holding.investmentPercentage,
+                }
+              }, holdings)
+            }
+
+            const getFormattedData = R.map((user) => {
+              for (let h of getUserHoldings(user.holdings, user)) {
+                console.log('-------')
+                console.log(h)
+                console.log(user)
+                console.log('-------')
+
+                allHoldings.push({
+                  user: user.userId,
+                  firstName: user.firstName,
+                  lastName: user.lastName,
+                  date: user.date,
+                  holding: h.holding,
+                  value: h.value,
+                })
+              }
+            })
+
+            console.log(JSON.parse(investments))
+            getFormattedData(JSON.parse(investments))
+            console.log(allHoldings)
+
+            const csv = csvWriter
+              .writeRecords(allHoldings)
+              .then(() => console.log('The CSV file was written successfully'))
+            
+
+              // res.send(allHoldings)
+
+            return res.send(allHoldings)
           }
         })
-        getFormattedData(JSON.parse(investments))
-        console.log(allHoldings)
-
-        // const data =
-        // csvWriter
-        //   .writeRecords(data)
-        //   .then(() => console.log('The CSV file was written successfully'))
-        res.send(allHoldings)
       }
     },
   )
@@ -94,19 +124,3 @@ app.listen(config.port, (err) => {
   }
   console.log(`Server running on port ${config.port}`)
 })
-
-//FUNCTIONS HERE
-const getALlHoldings = async () => {
-  return await request.get(
-    `${config.companiesUrl}/companies`,
-    (e, r, companies) => {
-      if (e) {
-        console.error(e)
-        return null
-      } else {
-        console.log(companies)
-        return companies
-      }
-    },
-  )
-}
