@@ -29,10 +29,11 @@ app.get('/investments/:id', (req, res) => {
 //WILL BE IMPLEMENTED HERE
 app.get('/generatecsv', async (req, res) => {
   console.log('GET: generatecsv')
-  const { id } = req.params
+
+  //GET USERS AND THEIR INVESTMENTS
   request.get(
     `${config.investmentsServiceUrl}/investments`,
-    async (e, r, investments) => {
+    async (e, r, invest) => {
       if (e) {
         console.error(e)
         res.send(500)
@@ -41,75 +42,31 @@ app.get('/generatecsv', async (req, res) => {
         request.get(`${config.companiesUrl}/companies`, (e, r, comp) => {
           if (e) {
             console.error(e)
-            return null
+            res.send(500)
           } else {
             const companies = JSON.parse(comp)
-            console.log(companies)
-
-            //CREATE A CSV DOCUMENT
-            const csvWriter = createCsvWriter({
-              path: 'out.csv',
-              header: [
-                { id: 'user', title: 'User' },
-                { id: 'firstName', title: 'First Name' },
-                { id: 'lastName', title: 'Last Name' },
-                { id: 'date', title: 'Date' },
-                { id: 'holding', title: 'Holding' },
-                { id: 'value', title: 'Value' },
-              ],
-            })
-
+            const investments = JSON.parse(invest)
             let allHoldings = []
 
-            const findCompanyById = (id, companies) => {
-              return R.find((company) => {
-                return company.id === id
-              }, companies)
-            }
+            getFormattedData(investments, companies, allHoldings)
+            createCSVFile(allHoldings)
 
-            const getUserHoldings = (holdings, user) => {
-              // console.log("----user")
-              // console.log(user)
-              // console.log(user.investmentTotal)
-              return R.map((holding) => {
-                const company = findCompanyById(holding.id, companies)
-                return {
-                  holding: company.name,
-                  value: user.investmentTotal * holding.investmentPercentage,
+
+            //SEND CSV FORMATTED DATA TO EXPORT
+            request.post(
+              `${config.investmentsServiceUrl}/investments/export`,
+              { json: allHoldings },
+              (e, r, response) => {
+                if (e) {
+                  console.error(e)
+                  res.send(500)
+                } else {
+                  return res.send('DATA SENT TO /EXPORT')
                 }
-              }, holdings)
-            }
+              },
+            )
 
-            const getFormattedData = R.map((user) => {
-              for (let h of getUserHoldings(user.holdings, user)) {
-                console.log('-------')
-                console.log(h)
-                console.log(user)
-                console.log('-------')
 
-                allHoldings.push({
-                  user: user.userId,
-                  firstName: user.firstName,
-                  lastName: user.lastName,
-                  date: user.date,
-                  holding: h.holding,
-                  value: h.value,
-                })
-              }
-            })
-
-            console.log(JSON.parse(investments))
-            getFormattedData(JSON.parse(investments))
-            console.log(allHoldings)
-
-            const csv = csvWriter
-              .writeRecords(allHoldings)
-              .then(() => console.log('The CSV file was written successfully'))
-            
-
-              // res.send(allHoldings)
-
-            return res.send(allHoldings)
           }
         })
       }
@@ -124,3 +81,56 @@ app.listen(config.port, (err) => {
   }
   console.log(`Server running on port ${config.port}`)
 })
+
+
+const createCSVFile = (allHoldings) => {
+  //CREATE A CSV DOCUMENT
+  const csvWriter = createCsvWriter({
+    path: 'holdings.csv',
+    header: [
+      { id: 'user', title: 'User' },
+      { id: 'firstName', title: 'First Name' },
+      { id: 'lastName', title: 'Last Name' },
+      { id: 'date', title: 'Date' },
+      { id: 'holding', title: 'Holding' },
+      { id: 'value', title: 'Value' },
+    ],
+  })
+
+  const csv = csvWriter
+    .writeRecords(allHoldings)
+    .then(() => console.log('The CSV file was written successfully'))
+}
+
+
+const findCompanyById = (id, companies) => {
+  return R.find((company) => {
+    return company.id === id
+  }, companies)
+}
+
+const getUserHoldings = (user, companies) => {
+  return R.map((holding) => {
+    const company = findCompanyById(holding.id, companies)
+    return {
+      holding: company.name,
+      value: user.investmentTotal * holding.investmentPercentage,
+    }
+  }, user.holdings)
+}
+
+const getFormattedData = (investments, companies, allHoldings) => {
+  return  R.map((user) => {
+    for (let h of getUserHoldings(user, companies)) {
+      allHoldings.push({
+        user: user.userId,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        date: user.date,
+        holding: h.holding,
+        value: h.value,
+      })
+    }
+  }, investments)
+}
+
